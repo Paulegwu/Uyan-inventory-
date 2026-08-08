@@ -34,7 +34,11 @@ async function route(req,res){
  if(p.startsWith('/api/issues/')&&p.endsWith('/confirm')&&req.method==='POST'){if(!['admin','storekeeper'].includes(me.role))return send(res,403,{error:'Forbidden'});const id=Number(p.split('/')[3]),i=db.issues.find(x=>x.id===id);if(!i)return send(res,404,{error:'Issue not found'});i.confirmed=true;i.confirmedAt=new Date().toISOString();i.confirmedBy=me.username;save();broadcast('issue_confirmed',{id});return send(res,200,i)}
  if(p==='/api/reports/weekly'&&req.method==='GET'){ensureOpening();const end=new Date(),start=new Date();start.setDate(end.getDate()-6);const from=start.toISOString().slice(0,10),to=end.toISOString().slice(0,10),arr=db.movements.filter(x=>x.date>=from&&x.date<=to);return send(res,200,{from,to,movements:arr,issues:db.issues.filter(x=>x.date>=from&&x.date<=to),supplies:db.supplies.filter(x=>x.date>=from&&x.date<=to),low:low()})}
  if(p==='/api/reset'&&req.method==='POST'){if(me.role!=='admin')return send(res,403,{error:'Forbidden'});db=initial();save();broadcast('reset',{});return send(res,200,{ok:true})}
- return send(res,404,{error:'Not found'});
+if(p==='/'&&req.method==='GET'){
+  const html=fs.readFileSync(path.join(ROOT,'prototype.html'),'utf8');
+  res.writeHead(200,{'Content-Type':'text/html; charset=utf-8'});
+  return res.end(html);
+} return send(res,404,{error:'Not found'});
 }
 const server=http.createServer((req,res)=>{if(req.url.startsWith('/api/'))route(req,res).catch(e=>send(res,500,{error:e.message}));else{let file=pSafe(req.url==='/'?'/index.html':req.url);if(!file)return send(res,404,{error:'Not found'});const ext=path.extname(file),ct={'.html':'text/html','.js':'text/javascript','.css':'text/css','.png':'image/png','.json':'application/json'}[ext]||'application/octet-stream';res.writeHead(200,{'Content-Type':ct});fs.createReadStream(file).pipe(res)}});
 function pSafe(u){const q=decodeURIComponent(u.split('?')[0]);const f=path.normalize(path.join(PUB,q));return f.startsWith(PUB+path.sep)&&fs.existsSync(f)?f:null}
